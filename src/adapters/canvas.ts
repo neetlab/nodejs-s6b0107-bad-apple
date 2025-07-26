@@ -1,10 +1,10 @@
 import { ICanvas } from "../interfaces/canvas.js";
 import { IS6b0107DisplayControl } from "../interfaces/s6b0107_display_control.js";
 import { IS6b0107ChipControl } from "../interfaces/s6b0107_chip_control.js";
+import { setTimeout } from "timers/promises";
 
 export class Canvas implements ICanvas {
-  #nextVram: Uint8Array;
-  #prevVram: Uint8Array;
+  #vram: Uint8Array;
 
   readonly #s6b0107ChipControl: IS6b0107ChipControl;
   readonly #s6b0107DisplayControl: IS6b0107DisplayControl;
@@ -13,22 +13,17 @@ export class Canvas implements ICanvas {
     s6b0107DisplayControl: IS6b0107DisplayControl,
     s6b0107ChipControl: IS6b0107ChipControl
   ) {
-    this.#nextVram = new Uint8Array(2 * 8 * 64).fill(0);
-    this.#prevVram = new Uint8Array(2 * 8 * 64).fill(0);
+    this.#vram = new Uint8Array(2 * 8 * 64).fill(0);
     this.#s6b0107DisplayControl = s6b0107DisplayControl;
     this.#s6b0107ChipControl = s6b0107ChipControl;
-
-    setInterval(() => {
-      this.#flush();
-    }, 1000 / 10);
   }
 
   write(x: number, y: number, value: 1 | 0): void {
-    if (x < 0 || 128 < x) {
+    if (x < 0 || 127 < x) {
       throw RangeError(`X is out of bounds ${x}`);
     }
 
-    if (y < 0 || 64 < y) {
+    if (y < 0 || 63 < y) {
       throw RangeError(`Y is out of bounds ${y}`);
     }
 
@@ -39,44 +34,44 @@ export class Canvas implements ICanvas {
     const shift = y % 8;
 
     if (value) {
-      this.#nextVram[index] = this.#nextVram[index] | (1 << shift);
+      this.#vram[index] = this.#vram[index] | (1 << shift);
     } else {
-      this.#nextVram[index] = this.#nextVram[index] & ~(1 << shift);
+      this.#vram[index] = this.#vram[index] & ~(1 << shift);
     }
   }
 
-  #flush(): void {
+  async flush(): Promise<void> {
     let lastChip: number | null = null;
     let lastPage: number | null = null;
-    
+    let lastAddress: number | null = null;
+
     for (const chip of [1, 2]) {
       for (let page = 0; page < 8; page++) {
         for (let address = 0; address < 64; address++) {
           const index = (chip - 1) * 8 * 64 + page * 64 + address;
-
-          const nextValue = this.#nextVram[index];
-          const prevValue = this.#prevVram[index];
-          if (nextValue === prevValue) {
-            continue;
-          }
+          const value = this.#vram[index];
 
           if (lastChip !== chip) {
             this.#s6b0107ChipControl.selectChip(chip);
-            lastChip = chip;
           }
-
           if (lastChip !== chip || lastPage !== page) {
             this.#s6b0107DisplayControl.setPage(page);
-            lastPage = page;
+          }
+          if (
+            lastChip !== chip ||
+            lastPage !== page ||
+            lastAddress !== address - 1
+          ) {
+            this.#s6b0107DisplayControl.setAddress(address);
           }
 
-          this.#s6b0107DisplayControl.setAddress(address);
-          this.#s6b0107DisplayControl.writeDisplayData(nextValue);
+          this.#s6b0107DisplayControl.writeDisplayData(value);
+
+          lastChip = chip;
+          lastPage = page;
+          lastAddress = address;
         }
       }
     }
-
-    this.#prevVram = new Uint8Array(this.#nextVram);
-    this.#nextVram = new Uint8Array(this.#nextVram);
   }
 }

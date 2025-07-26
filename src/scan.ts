@@ -1,15 +1,9 @@
-import fs from "fs/promises";
 import { setTimeout } from "timers/promises";
 
 import { S6b0107IDisplayControlGpio } from "./adapters/s6b0107_display_control_gpio.js";
 import { S6b0107ChipControlGpio } from "./adapters/s6b0107_chip_control_gpio.js";
 import { S6b0107GpioConfig } from "./adapters/s6b0107_gpio_config.js";
 import { Canvas } from "./adapters/canvas.js";
-
-const WIDTH = 128;
-const HEIGHT = 64;
-const FRAME_INTERVAL = 100;
-const BYTES_PER_FRAME = WIDTH * HEIGHT / 8;
 
 const config = new S6b0107GpioConfig({
   RS: 21,
@@ -35,9 +29,10 @@ const canvas = new Canvas(displayControl, chipControl);
 function clear() {
   for (let page = 0; page < 8; page++) {
     for (let address = 0; address < 64; address++) {
-      displayControl.setAddress(address);
       displayControl.setPage(page);
-      displayControl.writeDisplayData(0b00000000);
+      displayControl.setAddress(address);
+      displayControl.writeDisplayData(0);
+      console.log(`clearing page=${page}, address=${address}`);
     }
   }
 }
@@ -45,42 +40,27 @@ function clear() {
 async function main() {
   chipControl.reset();
 
-  await chipControl.selectChip(1);
+  chipControl.selectChip(1);
   displayControl.displayStartLine(0);
   displayControl.displayOnOff(1);
   clear();
 
-  await chipControl.selectChip(2);
+  chipControl.selectChip(2);
   displayControl.displayStartLine(0);
   displayControl.displayOnOff(1);
   clear();
-  
-  const data = await fs.readFile("./video.bin");
-  const frameCount = data.length / BYTES_PER_FRAME;
 
-  for (let f = 0; f < frameCount; f++) {
-    const frameStart = Date.now();
-    const frameData = data.subarray(f * BYTES_PER_FRAME, (f + 1) * BYTES_PER_FRAME);
+  let state: 0 | 1 = 1;
 
-    const bits: number[] = [];
-    for (const byte of frameData) {
-      for (let i = 7; i >= 0; i--) {
-        bits.push((byte >> i) & 1);
+  while (true) {
+    for (let x = 0; x < 128; x++) {
+      for (let y = 0; y < 64; y++) {
+        canvas.write(x, y, state);
       }
+      canvas.flush();
+      await setTimeout(100);
     }
-
-    for (let y = 0; y < 64; y++) {
-      for (let x = 0; x < 128; x++) {
-        const index = y * 128 + x;
-        canvas.write(x, y, bits[index] as 1 | 0)
-      }
-    }
-
-    await canvas.flush();
-    
-    const elapsed = Date.now() - frameStart;
-    const wait = Math.max(0, FRAME_INTERVAL - elapsed);
-    await setTimeout(wait);
+    state = state ? 0 : 1;
   }
 }
 
