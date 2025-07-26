@@ -59,19 +59,21 @@ async function main() {
 
   for (let f = 0; f < frameCount; f++) {
     const frameData = data.subarray(f * BYTES_PER_FRAME, (f + 1) * BYTES_PER_FRAME);
-    const bits: number[] = [];
 
+    const bits: number[] = [];
     for (const byte of frameData) {
       for (let i = 7; i >= 0; i--) {
-        bits[i] = (byte >> i) & 1;
+        bits.push((byte >> i) & 1);
       }
     }
 
-    for (let x = 0; x <= 128; x++) {
-      for (let y = 0; y <= 64; y++) {
-        const index = (y - 1) * 64 + (x - 1);
-        canvas.write(x, y, bits[index] as 1 | 0);
+    for (let y = 0; y <= 64; y++) {
+      let out = ""
+      for (let x = 0; x <= 128; x++) {
+        const index = y * 128 + x;
+        canvas.write(x, y, bits[index] as 1 | 0)
       }
+      console.log(out);
     }
 
     await setTimeout(100);
