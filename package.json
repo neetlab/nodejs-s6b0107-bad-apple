@@ -1,0 +1,29 @@
+{
+  "name": "nodejs-s6b0107-bad-apple",
+  "version": "1.0.0",
+  "description": "A program to play Bad Apple! in S6B0107-compatible LCD display via Node.js",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "rebuild-opencv": "build-opencv --nobuild rebuild"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/neetlab/nodejs-s6b0107-bad-apple.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/neetlab/nodejs-s6b0107-bad-apple/issues"
+  },
+  "homepage": "https://github.com/neetlab/nodejs-s6b0107-bad-apple#readme",
+  "dependencies": {
+    "pigpio": "^3.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.1.0",
+    "@u4/opencv4nodejs": "^7.1.2",
+    "tsx": "^4.20.3",
+    "typescript": "^5.8.3"
+  }
+}
